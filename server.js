@@ -5,6 +5,7 @@ import { WebSocketServer } from 'ws';
 
 // Internal Dependencies
 import __dirname from './utils/getDirname.js';
+import TicTacToeSocket from './utils/Classes.js';
 import { router as htmlRoutes } from './routes/staticRoutes.js';
 
 // Node Packages
@@ -15,7 +16,9 @@ import path from 'path';
 const PORT = process.env.PORT || 3001;
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+
+// Create WebSocket Instance
+new TicTacToeSocket(server);
 
 // Serve static assets
 app.use(express.static(path.join(__dirname, 'public')));
@@ -27,15 +30,6 @@ app.use('/', htmlRoutes);
 // 404 Route
 app.use((_, res) => {
 	res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
-});
-
-// WebSocket instance
-wss.on('connection', (socket) => {
-	console.log('✅ New WebSocket connection');
-
-	socket.on('close', () => {
-		console.log('❌ WebSocket client disconnected');
-	});
 });
 
 // Start server
