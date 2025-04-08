@@ -1,2 +1,15 @@
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
+<script lang="ts">
+	import sendMessage from '$lib/websocket';
+
+	let input = '';
+
+	function send() {
+		if (input.trim()) {
+			sendMessage(input);
+			input = '';
+		}
+	}
+</script>
+
+<input bind:value={input} type="text" placeholder="Type a message..." />
+<button onclick={send}>Send</button>
