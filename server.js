@@ -3,8 +3,11 @@ import express from 'express';
 import morgan from 'morgan';
 import { WebSocketServer } from 'ws';
 
+// Internal Dependencies
+import __dirname from './utils/getDirname.js';
+import { router as htmlRoutes } from './routes/staticRoutes.js';
+
 // Node Packages
-import { fileURLToPath } from 'url';
 import http from 'http';
 import path from 'path';
 
@@ -14,15 +17,17 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-// Build path (no access to __dirname in ES6 module)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // Serve static assets
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Middleware
 app.use(morgan('tiny'));
+app.use('/', htmlRoutes);
+
+// 404 Route
+app.use((_, res) => {
+	res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+});
 
 // WebSocket instance
 wss.on('connection', (socket) => {
