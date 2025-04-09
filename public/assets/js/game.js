@@ -14,3 +14,7 @@ socket.addEventListener('open', () => {
 		);
 	}
 });
+
+socket.addEventListener('message', ({ data }) => {
+	console.log(data);
+});

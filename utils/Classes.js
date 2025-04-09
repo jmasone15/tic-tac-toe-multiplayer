@@ -14,6 +14,18 @@ class Room {
 		this.players = [];
 	}
 
+	messageAll(message, exludeSocket = null) {
+		this.players.forEach((p) => {
+			if (!exludeSocket || p.socket !== exludeSocket) {
+				p.socket.send(message);
+			}
+		});
+	}
+
+	roomLog(message) {
+		console.log(`Room ${this.roomCode}: ${message}`);
+	}
+
 	joinRoom(socket, name) {
 		// Set symbol and create new player
 		const symbol = this.players.length === 0 ? 'X' : 'O';
@@ -22,9 +34,13 @@ class Room {
 		// Add to players array
 		this.players.push(player);
 
-		console.log(
-			`Room ${this.roomCode}: Player ${name} has joined the room as "${symbol}"`
-		);
+		// Log action and notify other players
+		const roomMessage = `Player ${name} has joined the room as "${symbol}"`;
+		this.roomLog(roomMessage);
+
+		if (this.players.length > 1) {
+			this.messageAll(roomMessage, socket);
+		}
 	}
 }
 
@@ -95,6 +111,8 @@ export default class TicTacToeSocket {
 				// No room found validation
 				if (!existingRoom) {
 					this.onError(socket, 'Room not found');
+				} else if (existingRoom.players.length === 2) {
+					this.onError(socket, 'Room is full');
 				} else {
 					existingRoom.joinRoom(socket, payload.name);
 				}
