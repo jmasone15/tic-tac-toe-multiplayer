@@ -6,6 +6,10 @@ class Player {
 		this.name = name;
 		this.symbol = symbol;
 	}
+
+	get ready() {
+		return this.socket && this.socket.readyState === this.socket.OPEN;
+	}
 }
 
 class Room {
@@ -14,10 +18,16 @@ class Room {
 		this.players = [];
 	}
 
-	messageAll(message, exludeSocket = null) {
+	messageAll(type, payload, exludeSocket = null) {
 		this.players.forEach((p) => {
-			if (!exludeSocket || p.socket !== exludeSocket) {
-				p.socket.send(message);
+			const isIncluded = !exludeSocket || p.socket !== exludeSocket;
+			if (p.ready && isIncluded) {
+				p.socket.send(
+					JSON.stringify({
+						type,
+						payload
+					})
+				);
 			}
 		});
 	}
@@ -35,11 +45,10 @@ class Room {
 		this.players.push(player);
 
 		// Log action and notify other players
-		const roomMessage = `Player ${name} has joined the room as "${symbol}"`;
-		this.roomLog(roomMessage);
-
+		const message = `Player ${name} has joined the room as "${symbol}"`;
+		this.roomLog(message);
 		if (this.players.length > 1) {
-			this.messageAll(roomMessage, socket);
+			this.messageAll('notification', { message }, socket);
 		}
 	}
 }
@@ -78,11 +87,62 @@ class Rooms {
 	}
 }
 
+class RateLimiter {
+	constructor({ windowMs, maxRequests }) {
+		this.windowMs = windowMs; // e.g., 10000 for 10 seconds
+		this.maxRequests = maxRequests; // e.g., 20 messages per window
+		this.map = new Map(); // key -> { count, lastReset }
+
+		// Clean up old entries periodically
+		setInterval(() => this.cleanup(), windowMs * 5);
+	}
+
+	isAllowed(key) {
+		const now = Date.now();
+		const data = this.map.get(key);
+
+		console.log(data);
+
+		if (!data) {
+			this.map.set(key, { count: 1, lastReset: now });
+			return true;
+		}
+
+		if (now - data.lastReset > this.windowMs) {
+			data.count = 1;
+			data.lastReset = now;
+			this.map.set(key, data);
+			return true;
+		}
+
+		if (data.count >= this.maxRequests) {
+			return false;
+		}
+
+		data.count++;
+		this.map.set(key, data);
+		return true;
+	}
+
+	cleanup() {
+		const now = Date.now();
+		for (const [key, data] of this.map.entries()) {
+			if (now - data.lastReset > this.windowMs * 5) {
+				this.map.delete(key);
+			}
+		}
+	}
+}
+
 export default class TicTacToeSocket {
 	constructor(server) {
 		// Create WebSocket server off of HTTP server
 		this.wss = new WebSocketServer({ server });
 		this.rooms = new Rooms();
+		this.rateLimiter = new RateLimiter({
+			windowMs: 10_000,
+			maxRequests: 20
+		});
 
 		// Wire up connection to methods
 		this.wss.on('connection', this.onConnection);
@@ -97,6 +157,13 @@ export default class TicTacToeSocket {
 	};
 
 	onMessage = (socket, message) => {
+		const ip = socket._socket.remoteAddress;
+		if (!this.rateLimiter.isAllowed(ip)) {
+			console.warn(`⚠️ Rate limit exceeded for IP: ${ip}`);
+			this.onError(socket, 'Rate of requests exceeded threshold');
+			return;
+		}
+
 		const { type, roomCode, payload } = JSON.parse(message);
 
 		switch (type) {
