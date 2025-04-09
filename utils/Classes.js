@@ -18,6 +18,10 @@ class Room {
 		this.players = [];
 	}
 
+	get playersCount() {
+		return this.players.length;
+	}
+
 	messageAll(type, payload, exludeSocket = null) {
 		this.players.forEach((p) => {
 			const isIncluded = !exludeSocket || p.socket !== exludeSocket;
@@ -38,18 +42,34 @@ class Room {
 
 	joinRoom(socket, name) {
 		// Set symbol and create new player
-		const symbol = this.players.length === 0 ? 'X' : 'O';
+		const symbol = this.playersCount === 0 ? 'X' : 'O';
 		const player = new Player(socket, name, symbol);
 
 		// Add to players array
 		this.players.push(player);
 
+		// Set socket with room code
+		socket.roomCode = this.roomCode;
+
 		// Log action and notify other players
 		const message = `Player ${name} has joined the room as "${symbol}"`;
 		this.roomLog(message);
-		if (this.players.length > 1) {
+		if (this.playersCount > 1) {
 			this.messageAll('notification', { message }, socket);
 		}
+	}
+
+	leaveRoom(socket) {
+		const playerIdx = this.players.findIndex((p) => p.socket === socket);
+		const message = `Player ${this.players[playerIdx].name} has left the room.`;
+
+		this.roomLog(message);
+		if (this.playersCount === 2) {
+			this.messageAll('notification', { message }, socket);
+		}
+
+		// Remove player from room
+		this.players.splice(playerIdx, 1);
 	}
 }
 
@@ -61,10 +81,6 @@ class Rooms {
 	generateRoomCode() {
 		// e.g. 'A1B2C'
 		return Math.random().toString(36).substring(2, 7).toUpperCase();
-	}
-
-	findRoom(roomCode) {
-		return this.rooms.get(roomCode);
 	}
 
 	createRoom() {
@@ -85,6 +101,15 @@ class Rooms {
 			}
 		}
 	}
+
+	findRoom(roomCode) {
+		return this.rooms.get(roomCode);
+	}
+
+	deleteRoom(roomCode) {
+		console.log(`Room ${roomCode} has been deleted`);
+		this.rooms.delete(roomCode);
+	}
 }
 
 class RateLimiter {
@@ -100,8 +125,6 @@ class RateLimiter {
 	isAllowed(key) {
 		const now = Date.now();
 		const data = this.map.get(key);
-
-		console.log(data);
 
 		if (!data) {
 			this.map.set(key, { count: 1, lastReset: now });
@@ -149,7 +172,7 @@ export default class TicTacToeSocket {
 	}
 
 	onConnection = (socket) => {
-		console.log(`✅ New WebSocket connection: ${socket._socket.remoteAddress}`);
+		console.log('✅ New WebSocket connection');
 
 		// Socket Handlers
 		socket.on('message', (message) => this.onMessage(socket, message));
@@ -194,6 +217,13 @@ export default class TicTacToeSocket {
 
 	onClose = (socket) => {
 		console.log(`❌ WebSocket disconnected: ${socket._socket.remoteAddress}`);
+
+		const room = this.rooms.findRoom(socket.roomCode);
+		room.leaveRoom(socket);
+
+		if (room.playersCount === 0) {
+			this.rooms.deleteRoom(room.roomCode);
+		}
 	};
 
 	onError = (socket, message) => {
