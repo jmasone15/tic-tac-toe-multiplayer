@@ -219,10 +219,13 @@ export default class TicTacToeSocket {
 		console.log(`❌ WebSocket disconnected: ${socket._socket.remoteAddress}`);
 
 		const room = this.rooms.findRoom(socket.roomCode);
-		room.leaveRoom(socket);
 
-		if (room.playersCount === 0) {
-			this.rooms.deleteRoom(room.roomCode);
+		if (room) {
+			room.leaveRoom(socket);
+
+			if (room.playersCount === 0) {
+				this.rooms.deleteRoom(room.roomCode);
+			}
 		}
 	};
 
