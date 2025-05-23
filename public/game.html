@@ -4,11 +4,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/assets/css/styles.css">
     <title>Tic Tac Toe</title>
 </head>
 
 <body>
     <h1>Game Page</h1>
+    <h4>Room Code: <span id="room-code"></span></h4>
+
+    <p id="waiting">Waiting for player...</p>
+    <div class="card">
+        <p>Symbol: <span id="symbol"></span></p>
+        <p><span id="turn"></span> Turn</p>
+    </div>
+    <div id="game" class="d-none">
+        <div>
+            <button data-value="">[--]</button>
+            <button data-value="">[--]</button>
+            <button data-value="">[--]</button>
+        </div>
+        <br>
+        <div>
+            <button data-value="">[--]</button>
+            <button data-value="">[--]</button>
+            <button data-value="">[--]</button>
+        </div>
+        <br>
+        <div>
+            <button data-value="">[--]</button>
+            <button data-value="">[--]</button>
+            <button data-value="">[--]</button>
+        </div>
+    </div>
 
     <script src="/assets/js/game.js"></script>
 </body>

@@ -16,10 +16,18 @@ class Room {
 	constructor(roomCode) {
 		this.roomCode = roomCode;
 		this.players = [];
+		this.gameActive = false;
+		this.round = 0;
 	}
 
 	get playersCount() {
 		return this.players.length;
+	}
+
+	gameStart() {
+		this.gameActive = true;
+		this.round++;
+		this.messageAll('start', { first: this.round % 2 == 0 ? 'O' : 'X' });
 	}
 
 	messageAll(type, payload, exludeSocket = null) {
@@ -56,7 +64,16 @@ class Room {
 		this.roomLog(message);
 		if (this.playersCount > 1) {
 			this.messageAll('notification', { message }, socket);
+			this.gameStart();
 		}
+
+		// Send player metadata
+		player.socket.send(
+			JSON.stringify({
+				type: 'room-data',
+				payload: { code: socket.roomCode, symbol }
+			})
+		);
 	}
 
 	leaveRoom(socket) {

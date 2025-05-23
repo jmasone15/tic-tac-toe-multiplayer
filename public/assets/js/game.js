@@ -1,5 +1,14 @@
 let socket;
+let symbol;
+let code;
+let playerTurn = false;
+
 const urlParams = new URLSearchParams(window.location.search);
+const roomCodeSpan = document.getElementById('room-code');
+const gameDiv = document.getElementById('game');
+const waitingPara = document.getElementById('waiting');
+const turnSpan = document.getElementById('turn');
+const symbolSpan = document.getElementById('symbol');
 
 const init = () => {
 	const mode = urlParams.get('mode');
@@ -24,8 +33,45 @@ const init = () => {
 	});
 
 	socket.addEventListener('message', ({ data }) => {
-		console.log(data);
+		const extracted = JSON.parse(data);
+		console.log(extracted);
+
+		if (extracted.type === 'room-data') {
+			symbol = extracted.payload.symbol;
+			code = extracted.payload.code;
+			roomCodeSpan.innerText = code;
+
+			symbolSpan.textContent = symbol;
+		} else if (extracted.type === 'start') {
+			waitingPara.setAttribute('class', 'd-none');
+			gameDiv.setAttribute('class', '');
+
+			playerTurn = extracted.payload.first === symbol;
+
+			turnSpan.innerText = playerTurn ? 'Your' : 'Opponent';
+		}
 	});
 };
+
+const gameButtons = document.querySelectorAll('button');
+
+gameButtons.forEach((btn) => {
+	btn.addEventListener('click', () => {
+		if (!playerTurn) {
+			console.log('not your turn');
+			return;
+		}
+
+		const value = btn.getAttribute('data-value');
+
+		if (!value) {
+			console.log('play');
+			btn.setAttribute('data-value', symbol);
+			btn.textContent = `[${symbol}]`;
+		} else {
+			console.log('taken');
+		}
+	});
+});
 
 init();
