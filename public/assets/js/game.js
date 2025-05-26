@@ -33,22 +33,30 @@ const init = () => {
 	});
 
 	socket.addEventListener('message', ({ data }) => {
-		const extracted = JSON.parse(data);
-		console.log(extracted);
+		const { type, payload } = JSON.parse(data);
+		console.log(type, payload);
 
-		if (extracted.type === 'room-data') {
-			symbol = extracted.payload.symbol;
-			code = extracted.payload.code;
+		if (type === 'room-data') {
+			symbol = payload.symbol;
+			code = payload.code;
 			roomCodeSpan.innerText = code;
 
 			symbolSpan.textContent = symbol;
-		} else if (extracted.type === 'start') {
+		} else if (type === 'start') {
 			waitingPara.setAttribute('class', 'd-none');
 			gameDiv.setAttribute('class', '');
 
-			playerTurn = extracted.payload.first === symbol;
+			playerTurn = payload.first === symbol;
 
 			turnSpan.innerText = playerTurn ? 'Your' : 'Opponent';
+		} else if (type === 'move') {
+			console.log('opponent move');
+
+			const btn = document.getElementById(payload.locationId);
+			btn.setAttribute('data-value', payload.symbol);
+			btn.textContent = `[${payload.symbol}]`;
+
+			playerTurn = true;
 		}
 	});
 };
@@ -63,11 +71,21 @@ gameButtons.forEach((btn) => {
 		}
 
 		const value = btn.getAttribute('data-value');
+		const locationId = btn.getAttribute('id');
 
 		if (!value) {
-			console.log('play');
+			playerTurn = false;
+
 			btn.setAttribute('data-value', symbol);
 			btn.textContent = `[${symbol}]`;
+
+			socket.send(
+				JSON.stringify({
+					type: 'move',
+					roomCode: code,
+					payload: { symbol, locationId, isWin: false }
+				})
+			);
 		} else {
 			console.log('taken');
 		}

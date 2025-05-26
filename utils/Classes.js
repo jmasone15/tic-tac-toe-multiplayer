@@ -1,5 +1,8 @@
 import { WebSocketServer } from 'ws';
 
+// Refactor to have a list of all possible message event types
+// Add class for socket message body for consistency
+
 class Player {
 	constructor(socket, name, symbol) {
 		this.socket = socket;
@@ -28,6 +31,21 @@ class Room {
 		this.gameActive = true;
 		this.round++;
 		this.messageAll('start', { first: this.round % 2 == 0 ? 'O' : 'X' });
+	}
+
+	move({ symbol, locationId, isWin }) {
+		const player = this.players.filter((p) => p.symbol === symbol);
+
+		if (!player) {
+			this.messageAll('error', { message: 'Player not found...' });
+		} else {
+			this.messageAll('move', { symbol, locationId, isWin }, player[0].socket);
+
+			const message = `Player ${player[0].name} played "${symbol}" in grid cell ${locationId}.`;
+			this.roomLog(message);
+		}
+
+		return;
 	}
 
 	messageAll(type, payload, exludeSocket = null) {
@@ -205,6 +223,7 @@ export default class TicTacToeSocket {
 		}
 
 		const { type, roomCode, payload } = JSON.parse(message);
+		const existingRoom = this.rooms.findRoom(roomCode);
 
 		switch (type) {
 			case 'create-room':
@@ -213,8 +232,6 @@ export default class TicTacToeSocket {
 
 				return;
 			case 'join-room':
-				const existingRoom = this.rooms.findRoom(roomCode);
-
 				// No room found validation
 				if (!existingRoom) {
 					this.onError(socket, 'Room not found');
@@ -222,6 +239,20 @@ export default class TicTacToeSocket {
 					this.onError(socket, 'Room is full');
 				} else {
 					existingRoom.joinRoom(socket, payload.name);
+				}
+
+				return;
+			case 'move':
+				// Room Validation
+				if (!existingRoom) {
+					this.onError(socket, 'Room not found');
+				} else if (
+					!existingRoom.gameActive ||
+					existingRoom.players.length !== 2
+				) {
+					this.onError(socket, 'Game not started');
+				} else {
+					existingRoom.move(payload);
 				}
 
 				return;
@@ -247,6 +278,6 @@ export default class TicTacToeSocket {
 	};
 
 	onError = (socket, message) => {
-		socket.send(`Error: ${message}`);
+		socket.send(JSON.stringify({ type: 'error', payload: { message } }));
 	};
 }
